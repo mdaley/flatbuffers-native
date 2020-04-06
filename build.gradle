@@ -4,18 +4,18 @@ plugins {
 }
 
 import org.ajoberstar.grgit.Grgit;
-import org.eclipse.jgit.errors.RepositoryNotFoundException;
 
 group 'org.example'
 version '1.0-SNAPSHOT'
 
 sourceCompatibility = 1.8
 
-def flatbuffersTag = "v1.12.0"
+def flatbuffersVersion = "v1.11.0"
+def cmake = "/usr/local/bin/cmake"
+def make = "/usr/bin/make"
 
 def flatbuffersRemoteUri = "git@github.com:google/flatbuffers.git"
 def flatbuffersRepoPath = "$buildDir/flatbuffers"
-def Grgit flatbuffersRepo
 
 repositories {
     mavenCentral()
@@ -30,37 +30,73 @@ test {
     useJUnitPlatform()
 }
 
-task ensureFlatbuffersSource {
-    try {
-        flatbuffersRepo = Grgit.open(dir: flatbuffersRepoPath)
-        println("Using existing flatbuffers in " + flatbuffersRepoPath)
-    } catch (RepositoryNotFoundException e) {
-        println("Cloning flatbuffers repo from " + flatbuffersRemoteUri + " ...")
-        flatbuffersRepo = Grgit.clone(dir: flatbuffersRepoPath, uri: flatbuffersRemoteUri)
-        println("Clone complete.")
+task cloneFlatbuffersSource {
+    onlyIf {
+        def repoExists = (new File(flatbuffersRepoPath + "/.git")).exists()
+        if (repoExists) println("Flatbuffers repo exists, no need to clone")
+        return !repoExists
     }
-    println(flatbuffersRepo.describe())
+    doLast {
+        println("Cloning flatbuffers repo from " + flatbuffersRemoteUri)
+        flatbuffersRepo = Grgit.clone(dir: flatbuffersRepoPath, uri: flatbuffersRemoteUri)
+        println("Cloning complete.")
+    }
 }
 
 task ensureFlatbuffersCommitOrTag {
-    println("Set flatbuffers repo to correct tag")
-    flatbuffersRepo.clean(directories: true, ignore: false)
-    flatbuffersRepo.checkout(branch: "master")
-    flatbuffersRepo.pull()
-    flatbuffersRepo.checkout(branch: flatbuffersTag)
-}
-
-ensureFlatbuffersCommitOrTag.dependsOn(ensureFlatbuffersSource)
-
-task buildFlatbuffers {
-    println("Executing flatbuffers compilation...")
-    exec {
-        executable "echo"
-        args "Hello"
+    dependsOn(cloneFlatbuffersSource)
+    onlyIf {
+        File last = new File("build/.lastFlatbuffersVersion")
+        String lastVersion = last.exists() ? last.text : "";
+        def upToDate = (lastVersion == flatbuffersVersion)
+        if (upToDate) println("Version is up-to-date at " + flatbuffersVersion)
+        return lastVersion != flatbuffersVersion
     }
-    println("Flatbuffers compilation completed")
+
+    doLast {
+        println("Checking out flatbuffers repo to version " + flatbuffersVersion)
+        def flatbuffersRepo = Grgit.open(dir: flatbuffersRepoPath)
+        flatbuffersRepo.clean(directories: true, ignore: false)
+        flatbuffersRepo.checkout(branch: "master")
+        flatbuffersRepo.pull()
+        flatbuffersRepo.checkout(branch: flatbuffersVersion)
+        new File("build/.lastFlatbuffersVersion").text = flatbuffersVersion
+    }
 }
 
-buildFlatbuffers.dependsOn(ensureFlatbuffersCommitOrTag)
+task cmakeFlatbuffers(type:Exec) {
+    dependsOn(ensureFlatbuffersCommitOrTag)
+    outputs.file(flatbuffersRepoPath + "/Makefile")
+    executable cmake
+    args (["-S", flatbuffersRepoPath, "-B", flatbuffersRepoPath])
+}
 
-build.dependsOn ensureFlatbuffersSource
+/*task getFlatbuffersVersion {
+    new ByteArrayOutputStream().withStream {os ->
+        def result = exec {
+            workingDir flatbuffersRepoPath
+            executable "flatc"
+            args (["--version"])
+            standardOutput = os
+        }
+        def outputAsString = os.toString().replace("flatc version ", "")
+        println ("Flatc version is " + outputAsString)
+        project.ext.flatcVersion = outputAsString
+    }
+}
+
+task printVersion {
+    dependsOn getFlatbuffersVersion
+    version = project.ext.flatcVersion
+    println("Print version is " + version)
+}*/
+
+task makeFlatbuffers(type:Exec) {
+    dependsOn(cmakeFlatbuffers)
+    inputs.file(flatbuffersRepoPath + "/Makefile")
+    outputs.file(flatbuffersRepoPath + "/flatc")
+    workingDir flatbuffersRepoPath
+    executable make
+}
+
+build.dependsOn makeFlatbuffers
