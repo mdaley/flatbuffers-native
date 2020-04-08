@@ -38,7 +38,7 @@ task cloneFlatbuffersSource {
     }
     doLast {
         println("Cloning flatbuffers repo from " + flatbuffersRemoteUri)
-        flatbuffersRepo = Grgit.clone(dir: flatbuffersRepoPath, uri: flatbuffersRemoteUri)
+        Grgit.clone(dir: flatbuffersRepoPath, uri: flatbuffersRemoteUri)
         println("Cloning complete.")
     }
 }
