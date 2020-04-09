@@ -1,0 +1,112 @@
+plugins {
+    id 'java'
+    id 'org.ajoberstar.grgit' version '4.0.1' apply false
+}
+
+import org.ajoberstar.grgit.Grgit;
+
+group 'org.example'
+version '1.0-SNAPSHOT'
+
+sourceCompatibility = 1.8
+
+def flatbuffersVersion = "v1.11.0"
+def cmake = "/usr/local/bin/cmake"
+def make = "/usr/bin/make"
+
+def flatbuffersRemoteUri = "https://github.com/google/flatbuffers.git"
+def flatbuffersRepoPath = "$buildDir/flatbuffers"
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-api', version: '5.6.1'
+    testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: '5.6.1'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+task cloneFlatbuffersSource {
+    onlyIf {
+        def repoExists = (new File(flatbuffersRepoPath + "/.git")).exists()
+        if (repoExists) println("Flatbuffers repo exists, no need to clone")
+        return !repoExists
+    }
+    doLast {
+        println("Cloning flatbuffers repo from " + flatbuffersRemoteUri)
+        Grgit.clone(dir: flatbuffersRepoPath, uri: flatbuffersRemoteUri)
+        println("Cloning complete.")
+    }
+}
+
+task ensureFlatbuffersCommitOrTag {
+    dependsOn(cloneFlatbuffersSource)
+    onlyIf {
+        File last = new File("build/.lastFlatbuffersVersion")
+        String lastVersion = last.exists() ? last.text : "";
+        def upToDate = (lastVersion == flatbuffersVersion)
+        if (upToDate) println("Version is up-to-date at " + flatbuffersVersion)
+        return lastVersion != flatbuffersVersion
+    }
+
+    doLast {
+        println("Checking out flatbuffers repo to version " + flatbuffersVersion)
+        def flatbuffersRepo = Grgit.open(dir: flatbuffersRepoPath)
+        flatbuffersRepo.clean(directories: true, ignore: false)
+        flatbuffersRepo.checkout(branch: "master")
+        flatbuffersRepo.pull()
+        flatbuffersRepo.checkout(branch: flatbuffersVersion)
+        new File("build/.lastFlatbuffersVersion").text = flatbuffersVersion
+    }
+}
+
+task cmakeFlatbuffers(type:Exec) {
+    dependsOn(ensureFlatbuffersCommitOrTag)
+    outputs.file(flatbuffersRepoPath + "/Makefile")
+    executable cmake
+    workingDir flatbuffersRepoPath
+    args (["."])
+}
+
+/*task getFlatbuffersVersion {
+    new ByteArrayOutputStream().withStream {os ->
+        def result = exec {
+            workingDir flatbuffersRepoPath
+            executable "flatc"
+            args (["--version"])
+            standardOutput = os
+        }
+        def outputAsString = os.toString().replace("flatc version ", "")
+        println ("Flatc version is " + outputAsString)
+        project.ext.flatcVersion = outputAsString
+    }
+}
+
+task printVersion {
+    dependsOn getFlatbuffersVersion
+    version = project.ext.flatcVersion
+    println("Print version is " + version)
+}*/
+
+task makeFlatbuffers(type:Exec) {
+    dependsOn(cmakeFlatbuffers)
+    inputs.file(flatbuffersRepoPath + "/Makefile")
+    outputs.file(flatbuffersRepoPath + "/flatc")
+    workingDir flatbuffersRepoPath
+    executable make
+}
+
+task copyOutputs(type:Copy) {
+    dependsOn(makeFlatbuffers)
+    outputs.dir("$projectDir/out")
+    from flatbuffersRepoPath
+    include "flat*"
+    include "libflat*"
+    into "$projectDir/out"
+}
+
+build.dependsOn copyOutputs
