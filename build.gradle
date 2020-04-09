@@ -100,4 +100,13 @@ task makeFlatbuffers(type:Exec) {
     executable make
 }
 
-build.dependsOn makeFlatbuffers
+task copyOutputs(type:Copy) {
+    dependsOn(makeFlatbuffers)
+    outputs.dir("$projectDir/out")
+    from flatbuffersRepoPath
+    include "flat*"
+    include "libflat*"
+    into "$projectDir/out"
+}
+
+build.dependsOn copyOutputs
