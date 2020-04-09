@@ -7,4 +7,3 @@ RUN ln -s /usr/bin/cmake /usr/local/bin/cmake
 RUN mkdir /build
 RUN ln -s $(readlink -f /usr/bin/java | sed 's:/jre/bin/java::') /usr/lib/jvm/java
 ENV JAVA_HOME=/usr/lib/jvm/java
-USER 1001

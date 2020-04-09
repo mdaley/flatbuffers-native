@@ -68,7 +68,8 @@ task cmakeFlatbuffers(type:Exec) {
     dependsOn(ensureFlatbuffersCommitOrTag)
     outputs.file(flatbuffersRepoPath + "/Makefile")
     executable cmake
-    args (["-S", flatbuffersRepoPath, "-B", flatbuffersRepoPath])
+    workingDir flatbuffersRepoPath
+    args (["."])
 }
 
 /*task getFlatbuffersVersion {
