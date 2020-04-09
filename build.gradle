@@ -14,7 +14,7 @@ def flatbuffersVersion = "v1.11.0"
 def cmake = "/usr/local/bin/cmake"
 def make = "/usr/bin/make"
 
-def flatbuffersRemoteUri = "git@github.com:google/flatbuffers.git"
+def flatbuffersRemoteUri = "https://github.com/google/flatbuffers.git"
 def flatbuffersRepoPath = "$buildDir/flatbuffers"
 
 repositories {
