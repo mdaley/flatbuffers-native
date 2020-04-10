@@ -1,0 +1,7 @@
+#!/bin/sh
+for i in $(ls docker); do
+  for j in $(ls docker/$i); do
+    echo "Running build for $i $j"
+    docker build -t fbbuild-$i-$j -f docker/$i/$j/Dockerfile .
+  done
+done
