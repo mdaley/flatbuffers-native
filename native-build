@@ -1,0 +1,13 @@
+#!/bin/sh
+cd /build
+git clone $FLATBUFFERS_REPO
+cd flatbuffers
+git checkout -q $FLATBUFFERS_COMMIT
+cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -S . -B .
+make
+./flatc --version > /out/version.txt
+./flattests > /out/tests.txt
+cp ./flat* /out
+cp ./libflat* /out
+
+
