@@ -1,0 +1,17 @@
+#!/bin/bash
+set -euo pipefail
+IFS=$'\n\t'
+
+echo $PATH
+rm -rf /tmp/$BUILD_DIR
+mkdir -p /tmp/$BUILD_DIR/out
+cd /tmp/$BUILD_DIR
+git clone $FLATBUFFERS_REPO
+cd flatbuffers
+git checkout -q $FLATBUFFERS_COMMIT
+/usr/local/bin/cmake -S . -B .
+make
+./flatc --version > /tmp/$BUILD_DIR/out/version.txt
+./flattests > /tmp/$BUILD_DIR/out/tests.txt
+cp ./flat* /tmp/$BUILD_DIR/out
+cp ./libflat* /tmp/$BUILD_DIR/out

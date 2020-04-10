@@ -1,0 +1,19 @@
+#!/bin/sh
+set -o errexit
+IFS=$(printf '\n\t\')
+
+if [ -z "$1" ] | [ -z "$2" ] | [ -z "$3" ] | [ -z "$4" ]; then
+  echo "Usage: osx-build {flatbuffers_repo_url} {flatbuffers_commit_id | tag} {build_dir in /tmp} {ssh_url}"
+  exit 1
+fi
+
+set -o nounset
+
+FLATBUFFERS_REPO=$1
+FLATBUFFERS_COMMIT=$2
+BUILD_DIR=$3
+SSH_URL=$4
+
+cat osx-build-remote | sed -e 's|$BUILD_DIR|'$BUILD_DIR'|g' -e 's|$FLATBUFFERS_REPO|'$FLATBUFFERS_REPO'|g' -e 's|$FLATBUFFERS_COMMIT|'$FLATBUFFERS_COMMIT'|g' | ssh $SSH_URL 'bash -'
+mkdir -p out/osx/amd64
+scp $SSH_URL:/tmp/$BUILD_DIR/out/* out/osx/amd64
