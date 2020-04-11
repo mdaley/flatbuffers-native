@@ -1,0 +1,15 @@
+<assembly>
+    <id>alpine3-arm32v7</id>
+    <formats>
+        <format>jar</format>
+    </formats>
+    <fileSets>
+        <fileSet>
+            <directory>out/alpine3/amd64</directory>
+            <outputDirectory>lib/alpine3/amd64</outputDirectory>
+            <includes>
+                <include>libflat*</include>
+            </includes>
+        </fileSet>
+    </fileSets>
+</assembly>

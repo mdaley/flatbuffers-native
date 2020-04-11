@@ -1,0 +1,15 @@
+<assembly>
+    <id>centos7-amd64</id>
+    <formats>
+        <format>jar</format>
+    </formats>
+    <fileSets>
+        <fileSet>
+            <directory>out/centos7/amd64</directory>
+            <outputDirectory>lib/centos7/amd64</outputDirectory>
+            <includes>
+                <include>libflat*</include>
+            </includes>
+        </fileSet>
+    </fileSets>
+</assembly>

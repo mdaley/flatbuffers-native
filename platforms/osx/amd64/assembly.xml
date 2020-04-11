@@ -1,0 +1,22 @@
+<assembly>
+    <id>osx-amd64</id>
+    <formats>
+        <format>jar</format>
+    </formats>
+    <fileSets>
+        <fileSet>
+            <directory>out/osx/amd64</directory>
+            <outputDirectory>lib/osx/amd64</outputDirectory>
+            <includes>
+                <include>libflat*</include>
+            </includes>
+        </fileSet>
+        <fileSet>
+            <directory>out/osx/amd64</directory>
+            <outputDirectory>META-INF</outputDirectory>
+            <includes>
+                <include>MANIFEST.MF</include>
+            </includes>
+        </fileSet>
+    </fileSets>
+</assembly>
