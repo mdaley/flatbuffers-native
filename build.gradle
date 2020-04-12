@@ -26,21 +26,32 @@ task displayProjectProperties {
 }
 
 class DockerBuilder extends DefaultTask {
-    private String dir;
+    private String source
+    private String image
 
-    @Option(option = "dir", description = "directory for docker file")
-    void setDir(String dir) {
-        this.dir = dir
+    @Option(option = "source", description = "The name of the source Dockerfile")
+    void setSource(String source) {
+        this.source = source
+    }
+
+    @Option(option = "image", description = "name of the image that will be produced")
+    void setImage(String image) {
+        this.image = image
     }
 
     @Input
-    String getDir() {
-        return dir
+    String getSource() {
+        return source
+    }
+
+    @Input
+    String getImage() {
+        return image
     }
 
     @TaskAction
     void build() {
-        println "Directory is : ${dir}"
+        println "docker build -t ${image} -f ${source} ."
     }
 }
 
@@ -84,7 +95,8 @@ file("./platforms").eachDir { os ->
         println name
 
         def innerTask = tasks.register(name, DockerBuilder) {
-            dir = arch.path
+            source = "${arch.path}/Dockerfile"
+            image = "fbbuild-${osName}-${archName}"
         }
 
         innerTask
@@ -93,6 +105,7 @@ file("./platforms").eachDir { os ->
     }
 }
 
-println(dockerBuildTasks)
-
-build.dependsOn dockerBuildTasks
+build.dependsOn  {
+    mytask
+    dockerBuildTasks
+}
