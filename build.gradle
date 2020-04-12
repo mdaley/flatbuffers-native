@@ -25,9 +25,13 @@ task displayProjectProperties {
     }
 }
 
-class DockerBuilder extends DefaultTask {
+class DockerBuilder extends AbstractExecTask<DockerBuilder> {
     private String source
     private String image
+
+    DockerBuilder() {
+        super(DockerBuilder.class)
+    }
 
     @Option(option = "source", description = "The name of the source Dockerfile")
     void setSource(String source) {
@@ -50,37 +54,14 @@ class DockerBuilder extends DefaultTask {
     }
 
     @TaskAction
-    void build() {
-        println "docker build -t ${image} -f ${source} ."
+    @Override
+    protected void exec() {
+        commandLine("docker", "build", "-t", image, "-f", source, ".")
+        super.exec()
     }
 }
 
 List<Task> dockerBuildTasks = new ArrayList<>();
-
-/*task loopPlatforms() {
-    doLast {
-
-        file("./platforms").eachDir { os ->
-            file(os).eachDir { arch ->
-                println arch.path
-                def innerTask = tasks.register("myTask${arch.path}", DockerBuilder) {
-                    dir = arch.path
-                }
-
-                dockerBuildTasks.add(innerTask)
-            }
-        }
-
-        ext.dockerBuildTasks = tasks
-    }
-}*/
-
-/*task buildImages(type:Exec) {
-    dependsOn loopPlatforms
-    workingDir project.projectDir
-    commandLine './make-docker-build-images'
-    println(dockerBuildTasks)
-}*/
 
 task mytask() {
     println "Hello!"
@@ -94,14 +75,14 @@ file("./platforms").eachDir { os ->
         def name = "dockerBuild_${osName}_${archName}"
         println name
 
-        def innerTask = tasks.register(name, DockerBuilder) {
-            source = "${arch.path}/Dockerfile"
-            image = "fbbuild-${osName}-${archName}"
+        if (file("${arch.path}/Dockerfile").exists()) {
+            def innerTask = tasks.register(name, DockerBuilder) {
+                source = "${arch.path}/Dockerfile"
+                image = "fbbuild-${osName}-${archName}"
+            }
+
+            dockerBuildTasks.add(innerTask)
         }
-
-        innerTask
-
-        dockerBuildTasks.add(innerTask)
     }
 }
 
