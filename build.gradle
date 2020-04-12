@@ -1,0 +1,98 @@
+plugins {
+    id 'java'
+}
+
+group 'com.sequsoft.flatbuffers-native'
+version '1.12.0.1-SNAPSHOT'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation group: 'junit', name: 'junit', version: '4.12'
+}
+
+task displayProjectProperties {
+
+    doLast() {
+
+        for(Map.Entry p: project.getProperties()) {
+            println(p.toString() + "\n");
+        }
+    }
+}
+
+class DockerBuilder extends DefaultTask {
+    private String dir;
+
+    @Option(option = "dir", description = "directory for docker file")
+    void setDir(String dir) {
+        this.dir = dir
+    }
+
+    @Input
+    String getDir() {
+        return dir
+    }
+
+    @TaskAction
+    void build() {
+        println "Directory is : ${dir}"
+    }
+}
+
+List<Task> dockerBuildTasks = new ArrayList<>();
+
+/*task loopPlatforms() {
+    doLast {
+
+        file("./platforms").eachDir { os ->
+            file(os).eachDir { arch ->
+                println arch.path
+                def innerTask = tasks.register("myTask${arch.path}", DockerBuilder) {
+                    dir = arch.path
+                }
+
+                dockerBuildTasks.add(innerTask)
+            }
+        }
+
+        ext.dockerBuildTasks = tasks
+    }
+}*/
+
+/*task buildImages(type:Exec) {
+    dependsOn loopPlatforms
+    workingDir project.projectDir
+    commandLine './make-docker-build-images'
+    println(dockerBuildTasks)
+}*/
+
+task mytask() {
+    println "Hello!"
+}
+
+file("./platforms").eachDir { os ->
+    file(os).eachDir { arch ->
+        println arch.path
+        def osName = os.toString().substring(os.toString().lastIndexOf("/") + 1)
+        def archName = arch.toString().substring(arch.toString().lastIndexOf("/") + 1)
+        def name = "dockerBuild_${osName}_${archName}"
+        println name
+
+        def innerTask = tasks.register(name, DockerBuilder) {
+            dir = arch.path
+        }
+
+        innerTask
+
+        dockerBuildTasks.add(innerTask)
+    }
+}
+
+println(dockerBuildTasks)
+
+build.dependsOn dockerBuildTasks
