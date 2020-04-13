@@ -38,36 +38,47 @@ class DockerBuilder extends AbstractExecTask<DockerBuilder> {
         super(DockerBuilder.class)
     }
 
+    @Internal
     @Override
     TaskInputsInternal getInputs() {
         TaskInputsInternal inputs = super.getInputs()
-        println("INPUTS = " + inputs)
         return inputs;
     }
 
-    @Override
-    TaskOutputsInternal getOutputs() {
-        TaskOutputsInternal outputs = super.getOutputs()
-        println("OUTPUTS = " + outputs)
-        outputs.upToDateWhen( {
-            def action = getExecActionFactory().newExecAction()
-            def output = new ByteArrayOutputStream()
-            def err = new ByteArrayOutputStream()
-            action.commandLine("docker", "inspect", "-f", "{{.Id}}", image)
+    String dockerImageId() {
+        def action = getExecActionFactory().newExecAction()
+        def output = new ByteArrayOutputStream()
+        def err = new ByteArrayOutputStream()
+        action.commandLine("docker", "inspect", "-f", "{{.Id}}", image)
                 .setStandardOutput(output)
                 .setErrorOutput(err)
                 .setIgnoreExitValue(true)
-            action.execute()
-            def existingSha256 = new String(output.toByteArray())
-            println("Existing SHA256 is ${existingSha256}")
+        action.execute()
+        def str = new String(output.toByteArray())
+        return (str != "") ? str : null
+    }
 
-            def path = getProject().getBuildDir().toPath().resolve("dockerImageIds")
-            if (Files.notExists(path)) {
-                Files.createDirectory(path)
-            }
-            def savedSha256 = new File(path.toString(), image).text
+    String savedDockerImageId() {
+        def path = getProject().getBuildDir().toPath().resolve("dockerImageIds")
+        if (Files.notExists(path)) {
+            return null
+        }
+        def savedIdFile = new File(path.toString(), image)
+        if (Files.notExists(savedIdFile.toPath())) {
+            return null
+        }
+        return savedIdFile.text
+    }
 
-            savedSha256 == existingSha256
+    @Internal
+    @Override
+    TaskOutputsInternal getOutputs() {
+        TaskOutputsInternal outputs = super.getOutputs()
+        outputs.upToDateWhen( {
+            def savedImageId = savedDockerImageId()
+            def imageId = dockerImageId()
+
+            savedImageId != null && imageId != null && savedImageId == imageId
         })
 
         return outputs
@@ -93,24 +104,23 @@ class DockerBuilder extends AbstractExecTask<DockerBuilder> {
         return image
     }
 
+    void saveDockerImageId() {
+        def imageId = dockerImageId()
+        println("Saving docker image id ${imageId}")
+        def path = getProject().getBuildDir().toPath().resolve("dockerImageIds")
+        if (Files.notExists(path)) {
+            Files.createDirectory(path)
+        }
+        new File(path.toString(), image).text = imageId
+    }
+
     @TaskAction
     @Override
     protected void exec() {
         println("Running docker build: docker build -q -t ${image} -f ${source} .")
         commandLine("docker", "build", "-t", image, "-f", source, ".")
         super.exec()
-
-        def output = new ByteArrayOutputStream()
-        commandLine("docker", "inspect", "-f", "{{.Id}}", image)
-        standardOutput(output)
-        super.exec()
-        def path = getProject().getBuildDir().toPath().resolve("dockerImageIds")
-        if (Files.notExists(path)) {
-            Files.createDirectory(path)
-        }
-        def sha256 = new String(output.toByteArray())
-        println("Recording docker image id ${sha256}")
-        new File(path.toString(), image).text = sha256
+        saveDockerImageId()
     }
 }
 
