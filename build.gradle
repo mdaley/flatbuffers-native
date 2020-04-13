@@ -49,7 +49,27 @@ class DockerBuilder extends AbstractExecTask<DockerBuilder> {
     TaskOutputsInternal getOutputs() {
         TaskOutputsInternal outputs = super.getOutputs()
         println("OUTPUTS = " + outputs)
-        //outputs.upToDateWhen {true}
+        outputs.upToDateWhen( {
+            def action = getExecActionFactory().newExecAction()
+            def output = new ByteArrayOutputStream()
+            def err = new ByteArrayOutputStream()
+            action.commandLine("docker", "inspect", "-f", "{{.Id}}", image)
+                .setStandardOutput(output)
+                .setErrorOutput(err)
+                .setIgnoreExitValue(true)
+            action.execute()
+            def existingSha256 = new String(output.toByteArray())
+            println("Existing SHA256 is ${existingSha256}")
+
+            def path = getProject().getBuildDir().toPath().resolve("dockerImageIds")
+            if (Files.notExists(path)) {
+                Files.createDirectory(path)
+            }
+            def savedSha256 = new File(path.toString(), image).text
+
+            savedSha256 == existingSha256
+        })
+
         return outputs
     }
 
