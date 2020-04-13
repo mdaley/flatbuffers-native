@@ -42,6 +42,11 @@ class DockerBuilder extends AbstractExecTask<DockerBuilder> {
     @Override
     TaskInputsInternal getInputs() {
         TaskInputsInternal inputs = super.getInputs()
+
+        def sourceFile = new File(source)
+        if (sourceFile.exists()) {
+            inputs.file(sourceFile.toPath())
+        }
         return inputs;
     }
 
