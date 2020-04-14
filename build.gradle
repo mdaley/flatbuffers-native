@@ -197,6 +197,17 @@ class NativeBuildTask extends AbstractExecTask<NativeBuildTask> {
         return commit
     }
 
+    @Internal
+    @Override
+    TaskOutputsInternal getOutputs() {
+        TaskOutputsInternal outputs = super.getOutputs()
+        outputs.dirs {
+            getProject().getBuildDir().toPath().resolve("natives").resolve(os).resolve(arch)
+        }
+
+        return outputs
+    }
+
     private createOutputDirectory() {
         def path = getProject().getBuildDir().toPath().resolve("natives").resolve(os).resolve(arch)
         Files.createDirectories(path)
