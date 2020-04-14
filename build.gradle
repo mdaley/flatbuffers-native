@@ -10,10 +10,6 @@ plugins {
 group 'com.sequsoft.flatbuffers-native'
 version '1.12.0.1-SNAPSHOT'
 
-def flatbuffersCommit = "v1.12.0"
-def flatbuffersRepo = "https://github.com/google/flatbuffers.git"
-
-
 sourceCompatibility = 1.8
 
 repositories {
@@ -126,8 +122,9 @@ class DockerBuilder extends AbstractExecTask<DockerBuilder> {
     @TaskAction
     @Override
     protected void exec() {
-        println("Running docker build: docker build -q -t ${image} -f ${source} .")
-        commandLine("docker", "build", "-t", image, "-f", source, ".")
+        String[] cmd = ["docker", "build", "-t", image, "-f", source, "."]
+        println("Running docker build: " + cmd.join(" "))
+        commandLine(cmd)
         super.exec()
         saveDockerImageId()
     }
@@ -236,13 +233,15 @@ class NativeBuildTask extends AbstractExecTask<NativeBuildTask> {
     @TaskAction
     @Override
     protected void exec() {
-        println("Running native build on image ${image} for ${os} / ${arch}")
         createOutputDirectory()
         resolveCompileScript()
 
-        commandLine("docker", "run", "-v", "${outputDir}:/out", "-v", "${nativeBuildPath}:/native-build",
-            "-e", "FLATBUFFERS_REPO=${repo}", "-e", "FLATBUFFERS_COMMIT:${commit}",
-            "--entrypoint", "/bin/sh", image, "/native-build")
+        String[] cmd = ["docker", "run", "-v", "${outputDir}:/out", "-v", "${nativeBuildPath}:/native-build",
+                "-e", "FLATBUFFERS_REPO=${repo}", "-e", "FLATBUFFERS_COMMIT=${commit}",
+                "--entrypoint", "/bin/sh", image, "/native-build"]
+
+        println("Running compilation on docker container using: " + cmd.join(" "))
+        commandLine(cmd)
         super.exec()
     }
 }

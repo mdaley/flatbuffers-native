@@ -1,4 +1,8 @@
 #!/bin/sh
+set -o errexit
+set -o nounset
+
+IFS=$(printf '\n\t\')
 cd /build
 git clone $FLATBUFFERS_REPO
 cd flatbuffers
