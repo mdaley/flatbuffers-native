@@ -2,6 +2,7 @@ import org.gradle.api.internal.TaskInputsInternal
 import org.gradle.api.internal.TaskOutputsInternal
 
 import java.nio.file.Files
+import java.util.concurrent.AbstractExecutorService
 
 plugins {
     id 'java'
@@ -129,32 +130,37 @@ class DockerBuilder extends AbstractExecTask<DockerBuilder> {
     }
 }
 
-List<Task> dockerBuildTasks = new ArrayList<>();
-
-task mytask() {
-    println "Hello!"
-}
+List<Task> dynamicTasks = new ArrayList<>()
 
 file("./platforms").eachDir { os ->
     file(os).eachDir { arch ->
-        println arch.path
         def osName = os.toString().substring(os.toString().lastIndexOf("/") + 1)
         def archName = arch.toString().substring(arch.toString().lastIndexOf("/") + 1)
         def name = "dockerBuild_${osName}_${archName}"
-        println name
 
+        def dockerBuildTask = null
         if (file("${arch.path}/Dockerfile").exists()) {
-            def innerTask = tasks.register(name, DockerBuilder) {
+            dockerBuildTask = tasks.register(name, DockerBuilder) {
                 source = "${arch.path}/Dockerfile"
                 image = "fbbuild-${osName}-${archName}"
             }
 
-            dockerBuildTasks.add(innerTask)
+            println("Added task to build docker image for ${osName}-${archName}")
+            dynamicTasks.add(dockerBuildTask)
         }
+
+        def t = tasks.register("compileTask_${osName}_${archName}") {
+            dependsOn { dockerBuildTask }
+            doLast {
+                println("Hello from compile task")
+            }
+        }
+
+        dynamicTasks.add(t.get())
+
     }
 }
 
 build.dependsOn  {
-    mytask
-    dockerBuildTasks
+    dynamicTasks
 }

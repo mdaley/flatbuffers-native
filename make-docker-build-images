@@ -1,9 +1,0 @@
-#!/bin/sh
-for i in $(ls platforms); do
-  for j in $(ls platforms/$i); do
-    if [ -f platforms/$i/$j/Dockerfile ]; then
-      echo "Running build for $i $j"
-      docker build -t fbbuild-$i-$j -f platforms/$i/$j/Dockerfile .
-    fi
-  done
-done
