@@ -2,7 +2,6 @@ import org.gradle.api.internal.TaskInputsInternal
 import org.gradle.api.internal.TaskOutputsInternal
 
 import java.nio.file.Files
-import java.util.concurrent.AbstractExecutorService
 
 plugins {
     id 'java'
@@ -10,6 +9,10 @@ plugins {
 
 group 'com.sequsoft.flatbuffers-native'
 version '1.12.0.1-SNAPSHOT'
+
+def flatbuffersCommit = "v1.12.0"
+def flatbuffersRepo = "https://github.com/google/flatbuffers.git"
+
 
 sourceCompatibility = 1.8
 
@@ -130,6 +133,109 @@ class DockerBuilder extends AbstractExecTask<DockerBuilder> {
     }
 }
 
+class NativeBuildTask extends AbstractExecTask<NativeBuildTask> {
+    private String image
+    private String os
+    private String arch
+    private String repo
+    private String commit
+
+    private String outputDir
+    private String nativeBuildPath
+
+    NativeBuildTask() {
+        super(NativeBuildTask.class)
+    }
+
+    @Option(option = "image", description = "name of the image on which the native build will be run")
+    void setImage(String image) {
+        this.image = image
+    }
+
+    @Input
+    String getImage() {
+        return image
+    }
+
+    @Option(option = "os", description = "the operating system of the native executable")
+    void setOs(String os) {
+        this.os = os
+    }
+
+    @Input
+    String getOs() {
+        return os
+    }
+
+    @Option(option = "arch", description = "the architecture of the native executable")
+    void setArch(String arch) {
+        this.arch = arch
+    }
+
+    @Input
+    String getArch() {
+        return arch
+    }
+
+    @Option(option = "repo", description = "HTTP URL to the flatbuffers repository")
+    void setRepo(String repo) {
+        this.repo = repo
+    }
+
+    @Input
+    String getRepo() {
+        return repo
+    }
+
+    @Option(option = "commit", description = "The commit of the flatbuffers code to be compiled, e.g. v1.12.0, or a commit id")
+    void setCommit(String commit) {
+        this.commit = commit
+    }
+
+    @Input
+    String getCommit() {
+        return commit
+    }
+
+    private createOutputDirectory() {
+        def path = getProject().getBuildDir().toPath().resolve("natives").resolve(os).resolve(arch)
+        Files.createDirectories(path)
+        outputDir = path.toString()
+    }
+
+    private resolveCompileScript() {
+        def path = getProject().getProjectDir().toPath().resolve("platforms").resolve(os).resolve(arch)
+
+        if (!Files.exists(path.resolve("native-build"))) {
+            path = path.normalize().getParent()
+            if (!Files.exists(path.resolve("native-build"))) {
+                path = path.normalize().getParent()
+            }
+        }
+
+        if (!Files.exists(path.resolve("native-build"))) {
+            throw new RuntimeException("native build file does not exist at ${path}")
+        }
+
+        def resolvedPath = path.resolve("native-build")
+        println("Setting native build path to ${resolvedPath}")
+        nativeBuildPath = resolvedPath.toString()
+    }
+
+    @TaskAction
+    @Override
+    protected void exec() {
+        println("Running native build on image ${image} for ${os} / ${arch}")
+        createOutputDirectory()
+        resolveCompileScript()
+
+        commandLine("docker", "run", "-v", "${outputDir}:/out", "-v", "${nativeBuildPath}:/native-build",
+            "-e", "FLATBUFFERS_REPO=${repo}", "-e", "FLATBUFFERS_COMMIT:${commit}",
+            "--entrypoint", "/bin/sh", image, "/native-build")
+        super.exec()
+    }
+}
+
 List<Task> dynamicTasks = new ArrayList<>()
 
 file("./platforms").eachDir { os ->
@@ -138,26 +244,28 @@ file("./platforms").eachDir { os ->
         def archName = arch.toString().substring(arch.toString().lastIndexOf("/") + 1)
         def name = "dockerBuild_${osName}_${archName}"
 
-        def dockerBuildTask = null
         if (file("${arch.path}/Dockerfile").exists()) {
-            dockerBuildTask = tasks.register(name, DockerBuilder) {
+            def imageName = "fbbuild-${osName}-${archName}"
+            def dockerBuildTask = tasks.register(name, DockerBuilder) {
                 source = "${arch.path}/Dockerfile"
-                image = "fbbuild-${osName}-${archName}"
+                image = imageName
             }
 
             println("Added task to build docker image for ${osName}-${archName}")
             dynamicTasks.add(dockerBuildTask)
-        }
 
-        def t = tasks.register("compileTask_${osName}_${archName}") {
-            dependsOn { dockerBuildTask }
-            doLast {
-                println("Hello from compile task")
+            def nativeBuildTask = tasks.register("nativeBuildTask_${osName}_${archName}", NativeBuildTask) { t ->
+                t.os = osName
+                t.arch = archName
+                t.dependsOn = [ dockerBuildTask ]
+                t.image = imageName
+                t.repo = flatbuffersRepo
+                t.commit = flatbuffersCommit
             }
+
+            println("Adding task to compile native code on ${imageName} for ${osName} / ${archName}")
+            dynamicTasks.add(nativeBuildTask)
         }
-
-        dynamicTasks.add(t.get())
-
     }
 }
 
