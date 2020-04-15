@@ -254,27 +254,60 @@ file("./platforms").eachDir { os ->
         def archName = arch.toString().substring(arch.toString().lastIndexOf("/") + 1)
         def name = "dockerBuild_${osName}_${archName}"
 
-        if (file("${arch.path}/Dockerfile").exists()) {
-            def imageName = "fbbuild-${osName}-${archName}"
-            def dockerBuildTask = tasks.register(name, DockerBuilder) {
-                source = "${arch.path}/Dockerfile"
-                image = imageName
+        if (!file("${arch.path}/skip").exists()) {
+            if (file("${arch.path}/Dockerfile").exists()) {
+
+                // docker build
+                def imageName = "fbbuild-${osName}-${archName}"
+                def dockerBuildTask = tasks.register(name, DockerBuilder) {
+                    source = "${arch.path}/Dockerfile"
+                    image = imageName
+                }
+
+                println("Added task to build docker image for ${osName}-${archName}")
+                dynamicTasks.add(dockerBuildTask)
+
+                // compilation
+                def nativeBuildTask = tasks.register("nativeBuildTask_${osName}_${archName}", NativeBuildTask) { t ->
+                    t.os = osName
+                    t.arch = archName
+                    t.dependsOn = [dockerBuildTask]
+                    t.image = imageName
+                    t.repo = flatbuffersRepo
+                    t.commit = flatbuffersCommit
+                }
+
+                println("Adding task to compile native code on ${imageName} for ${osName} / ${archName}")
+                dynamicTasks.add(nativeBuildTask)
+
+                // packaging a jar
+                def jarTask = tasks.register("jarTask_${osName}_${archName}", Jar) { t ->
+                    t.doFirst {
+                        println("Creating native jar for ${osName} / ${archName}")
+                    }
+                    t.dependsOn = [nativeBuildTask]
+                    t.archiveBaseName.set("flatbuffers-native")
+                    t.version "${project.version}"
+                    t.archiveClassifier.set("${osName}-${archName}")
+                    t.manifest {
+                        attributes "Implementation-Title" : "Flatbuffers native container for ${osName} / ${archName}",
+                            "Implementation-Version" : "${project.version}",
+                            "Implementation-Vendor" : "Sequsoft"
+                    }
+                    t.from("${buildDir}/natives/${osName}/${archName}") {
+                        exclude "flat*"
+                        into "/natives/${osName}/${archName}"
+                    }
+                    //        .include { String s -> s.contains("libflat") }
+                    //        .into("/natives/${osName}/${archName}")
+                }
+
+                println("Adding task to packge native code into jar for ${osName} / ${archName}")
+                dynamicTasks.add(jarTask)
+
             }
-
-            println("Added task to build docker image for ${osName}-${archName}")
-            dynamicTasks.add(dockerBuildTask)
-
-            def nativeBuildTask = tasks.register("nativeBuildTask_${osName}_${archName}", NativeBuildTask) { t ->
-                t.os = osName
-                t.arch = archName
-                t.dependsOn = [ dockerBuildTask ]
-                t.image = imageName
-                t.repo = flatbuffersRepo
-                t.commit = flatbuffersCommit
-            }
-
-            println("Adding task to compile native code on ${imageName} for ${osName} / ${archName}")
-            dynamicTasks.add(nativeBuildTask)
+        } else {
+            println("Skipping tasks for ${osName} ${archName}")
         }
     }
 }
