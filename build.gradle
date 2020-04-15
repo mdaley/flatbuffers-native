@@ -247,6 +247,7 @@ class NativeBuildTask extends AbstractExecTask<NativeBuildTask> {
         resolveSharedLibraryCompileScript()
 
         String[] cmd = ["docker", "run", "-v", "${outputDir}:/out", "-v", "${nativeBuildPath}:/native-build",
+                "-v", "${sharedLibraryCompilePath}:/shared-library-build",
                 "-e", "FLATBUFFERS_REPO=${repo}", "-e", "FLATBUFFERS_COMMIT=${commit}",
                 "--entrypoint", "/bin/sh", image, "/native-build"]
 

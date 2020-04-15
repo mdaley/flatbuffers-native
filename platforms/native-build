@@ -9,6 +9,7 @@ cd flatbuffers
 git checkout -q $FLATBUFFERS_COMMIT
 cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -S . -B .
 make
+/shared-library-build
 ./flatc --version > /out/version.txt
 ./flattests > /out/tests.txt
 cp ./flat* /out
