@@ -306,6 +306,9 @@ file("./platforms").eachDir { os ->
                             "Implementation-Vendor" : "Sequsoft"
                     }
                     t.from("${buildDir}/natives/${osName}/${archName}") {
+                        include "lib*.so"
+                        include "*.txt"
+                        exclude "*.a"
                         exclude "flat*"
                         into "/natives/${osName}/${archName}"
                     }
