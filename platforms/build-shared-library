@@ -1,0 +1,7 @@
+#!/bin/sh
+set -o errexit
+set -o nounset
+
+IFS=$(printf '\n\t\')
+
+gcc -shared -o libflatbuffers.so libflatbuffers.a

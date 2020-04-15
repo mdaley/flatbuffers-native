@@ -139,6 +139,7 @@ class NativeBuildTask extends AbstractExecTask<NativeBuildTask> {
 
     private String outputDir
     private String nativeBuildPath
+    private String sharedLibraryCompilePath
 
     NativeBuildTask() {
         super(NativeBuildTask.class)
@@ -211,23 +212,31 @@ class NativeBuildTask extends AbstractExecTask<NativeBuildTask> {
         outputDir = path.toString()
     }
 
-    private resolveCompileScript() {
+    private String resolvePath(String name) {
         def path = getProject().getProjectDir().toPath().resolve("platforms").resolve(os).resolve(arch)
 
-        if (!Files.exists(path.resolve("native-build"))) {
+        if (!Files.exists(path.resolve(name))) {
             path = path.normalize().getParent()
-            if (!Files.exists(path.resolve("native-build"))) {
+            if (!Files.exists(path.resolve(name))) {
                 path = path.normalize().getParent()
             }
         }
 
-        if (!Files.exists(path.resolve("native-build"))) {
-            throw new RuntimeException("native build file does not exist at ${path}")
+        if (!Files.exists(path.resolve(name))) {
+            throw new RuntimeException("${name} file does not exist at ${path}")
         }
 
-        def resolvedPath = path.resolve("native-build")
-        println("Setting native build path to ${resolvedPath}")
-        nativeBuildPath = resolvedPath.toString()
+        def resolvedPath = path.resolve(name)
+        println("Setting ${name}'s path to ${resolvedPath}")
+        return resolvedPath.toString()
+    }
+
+    private resolveCompileScript() {
+        nativeBuildPath = resolvePath("native-build")
+    }
+
+    private resolveSharedLibraryCompileScript() {
+        sharedLibraryCompilePath = resolvePath("build-shared-library")
     }
 
     @TaskAction
@@ -235,6 +244,7 @@ class NativeBuildTask extends AbstractExecTask<NativeBuildTask> {
     protected void exec() {
         createOutputDirectory()
         resolveCompileScript()
+        resolveSharedLibraryCompileScript()
 
         String[] cmd = ["docker", "run", "-v", "${outputDir}:/out", "-v", "${nativeBuildPath}:/native-build",
                 "-e", "FLATBUFFERS_REPO=${repo}", "-e", "FLATBUFFERS_COMMIT=${commit}",
@@ -298,8 +308,6 @@ file("./platforms").eachDir { os ->
                         exclude "flat*"
                         into "/natives/${osName}/${archName}"
                     }
-                    //        .include { String s -> s.contains("libflat") }
-                    //        .into("/natives/${osName}/${archName}")
                 }
 
                 println("Adding task to packge native code into jar for ${osName} / ${archName}")
