@@ -1,10 +1,12 @@
 import org.gradle.api.internal.TaskInputsInternal
 import org.gradle.api.internal.TaskOutputsInternal
+import org.gradle.plugins.signing.signatory.internal.gnupg.GnupgSignatoryProvider
 
 import java.nio.file.Files
 
 plugins {
     id 'java'
+    //id 'maven-publish'
 }
 
 group 'com.sequsoft.flatbuffers-native'
@@ -17,7 +19,7 @@ repositories {
 }
 
 dependencies {
-    testImplementation group: 'junit', name: 'junit', version: '4.12'
+    //testImplementation group: 'junit', name: 'junit', version: '4.12'
 }
 
 task displayProjectProperties {
@@ -269,7 +271,7 @@ file("./platforms").eachDir { os ->
             if (file("${arch.path}/Dockerfile").exists()) {
 
                 // docker build
-                def imageName = "fbbuild-${osName}-${archName}"
+                /*def imageName = "fbbuild-${osName}-${archName}"
                 def dockerBuildTask = tasks.register(name, DockerBuilder) {
                     source = "${arch.path}/Dockerfile"
                     image = imageName
@@ -289,16 +291,16 @@ file("./platforms").eachDir { os ->
                 }
 
                 println("Adding task to compile native code on ${imageName} for ${osName} / ${archName}")
-                dynamicTasks.add(nativeBuildTask)
+                dynamicTasks.add(nativeBuildTask)*/
 
                 // packaging a jar
                 def jarTask = tasks.register("jarTask_${osName}_${archName}", Jar) { t ->
                     t.doFirst {
                         println("Creating native jar for ${osName} / ${archName}")
                     }
-                    t.dependsOn = [nativeBuildTask]
+                    //t.dependsOn = [nativeBuildTask]
                     t.archiveBaseName.set("flatbuffers-native")
-                    t.version "${project.version}"
+                    t.archiveVersion.set(project.version)
                     t.archiveClassifier.set("${osName}-${archName}")
                     t.manifest {
                         attributes "Implementation-Title" : "Flatbuffers native container for ${osName} / ${archName}",
@@ -315,7 +317,25 @@ file("./platforms").eachDir { os ->
                 }
 
                 println("Adding task to packge native code into jar for ${osName} / ${archName}")
+
                 dynamicTasks.add(jarTask)
+
+                def signingTask = tasks.register("signingTask_${osName}_${archName}", Sign) { s ->
+                    s.doFirst {
+                        println("Signing native jar for ${osName} / ${archName}")
+                    }
+                    s.setSignatureType(new org.gradle.plugins.signing.type.pgp.ArmoredSignatureType())
+                    s.dependsOn(jarTask)
+                    s.signatory = (new GnupgSignatoryProvider()).getDefaultSignatory(project)
+                    s.sign(new File("${buildDir}/libs/flatbuffers-native-${project.version}-${osName}-${archName}.jar"))
+                    s.doLast {
+                        println("actually signing...")
+                        s.generate()
+
+                    }
+                }
+
+                dynamicTasks.add(signingTask)
 
             }
         } else {
@@ -323,6 +343,47 @@ file("./platforms").eachDir { os ->
         }
     }
 }
+
+/*publishing {
+    repositories {
+        maven {
+            //def releasesRepoUrl = "$buildDir/repos/releases"
+            //def snapshotsRepoUrl = "https://oss.sonatype.org/content/repositories/snapshots"
+            //url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+            url = "https://oss.sonatype.org/content/repositories/snapshots"
+        }
+    }
+    publications {
+        maven(MavenPublication) {
+            pom {
+                name = "Flatbbuffers Native"
+                description = "Native executables for flatbuffers wrapped in a jar for use with JNI"
+                url = "https://github.com/sequsoft/flatbuffers-native"
+                licenses {
+                    license {
+                        name = "The Apache License, Version 2.0"
+                        url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+                    }
+                }
+                developers {
+                    developer {
+                        id = "mdaley"
+                        name = "Mattherw Daley"
+                        email = "m6daley@gmail.com"
+                    }
+                }
+                scm {
+                    connection = 'scm:git:git://github.com/sequsoft/flatbuffers-native.git'
+                    developerConnection = 'scm:git:ssh://github.com/sequsoft/flatbuffers-native.git'
+                    url = 'https://github.com/sequsoft/flatbuffers-native/'
+                }
+
+            }
+            //println "Signing ${buildDir}/libs/flatbuffers-native-${project.version}.jar"
+            artifact("${buildDir}/libs/flatbuffers-native-${project.version}.jar")
+        }
+    }
+}*/
 
 build.dependsOn  {
     dynamicTasks
